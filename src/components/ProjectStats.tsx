@@ -1,4 +1,4 @@
-import { MapPin, ShieldCheck, Home, Target, ChevronRight } from "lucide-react";
+import { MapPin, ShieldCheck, Home, Target, ChevronRight, ShieldAlert } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export const PROJECTS = [
@@ -81,6 +81,12 @@ export default function ProjectStats({
             title="Customer Interest"
             value={`${agreed}`}
             subtitle="Interested in Visit"
+          />
+          <StatCard 
+            icon={<ShieldAlert className="w-5 h-5 text-red-400" />}
+            title="Not Interested"
+            value={`${declined}`}
+            subtitle="Declined Visit"
           />
           <StatCard 
             icon={<ShieldCheck className="w-5 h-5 text-blue-400" />}

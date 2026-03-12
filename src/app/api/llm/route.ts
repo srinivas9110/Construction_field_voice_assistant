@@ -8,68 +8,66 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid messages array" }, { status: 400 });
     }
 
-    const lastMessage = messages[messages.length - 1].content.toLowerCase();
     const siteName = siteData?.name || "Riverwood Estate";
     const siteLocation = siteData?.location || "Sector 7, Kharkhauda";
     const siteProgress = siteData?.progress || "80% Boundary Walls";
-    
-    // Detection Logic: Favor Hindi/Hinglish if common keywords are detected as whole words
-    const hindiKeywords = ["han", "nahi", "thik", "kaise", "kya", "aap", "hu", "hai", "kar", "ho", "ji", "bilkul"];
-    const containsHindiKeywords = hindiKeywords.some(word => 
-      new RegExp(`\\b${word}\\b`, 'i').test(lastMessage)
-    );
-    
-    // Check if the message is predominantly English (Latin characters, common punctuation)
-    const matchesEnglishPattern = /^[a-zA-Z0-9\s?!.,']+$/.test(lastMessage);
-    const isEnglish = matchesEnglishPattern && !containsHindiKeywords;
-    
-    let reply = "";
-    let status = "neutral";
-    let shouldEnd = false;
 
-    // Check if we've already tried to convince
-    const hasTriedToConvince = messages.some(m => m.role === "ai" && (m.content.includes("missing") || m.content.includes("khona")));
+    const systemPrompt = `You are Aura, a warm, friendly, and helpful companion for anyone interested in ${siteName}. You don't sound like a typical corporate bot; you sound like a knowledgeable friend who is excited about the project.
+Project Details:
+Name: ${siteName}
+Location: ${siteLocation}
+Current Progress: ${siteProgress} (Note: Road leveling is already 100% complete!).
 
-    // Exit Intent: "no", "nothing else", "shut up", "bye"
-    const exitIntent = lastMessage.includes("nothing else") || lastMessage.includes("no more") || (lastMessage.includes("no") && messages.length > 5);
+Your personality & style:
+1. Greet the user in 'Hinglish' (e.g., "Namaste! Kaise hain aap?").
+2. Sound enthusiastic but natural. Use conversational fillers occasionally like "Umm", "Actually", or "Dekhiye".
+3. Proactively share the latest updates, especially the 100% road leveling.
+4. Try to guide the conversation towards a site visit this weekend in a friendly way.
+5. If the user says goodbye, thanks, or indicates they want to end, acknowledge warmly and set "terminate" to true.
+6. ALWAYS RESPOND IN JSON: { "message": "your response", "terminate": true/false, "status": "agreed" | "declined" | "neutral" }
+   - Set "status" to "agreed" if the user confirms a site visit.
+   - Set "status" to "declined" if the user explicitly refuses a visit.
+   - Otherwise, use "neutral".`;
 
-    if (lastMessage.includes("thank") || lastMessage.includes("shukriya") || lastMessage.includes("dhanyawad") || lastMessage.includes("bye") || exitIntent) {
-      reply = isEnglish 
-        ? `You're welcome! Looking forward to seeing you at ${siteName}. Have a great day!`
-        : `Ji shukriya! Humein aapka ${siteName} par intezaar rahega. Apna khayal rakhein!`;
-      shouldEnd = true;
-    } else if (lastMessage.includes("han") || lastMessage.includes("yes") || lastMessage.includes("jarur") || lastMessage.includes("sure") || lastMessage.includes("ok") || lastMessage.includes("thik")) {
-      status = "agreed";
-      reply = isEnglish 
-        ? `Excellent! I'll have our team call you to confirm the schedule for ${siteName}. You'll be glad to see the ${siteProgress} progress. Anything else?`
-        : `Bahut badiya! Main hamare team को बोलती हूँ आपको ${siteName} के लिए schedule confirm करने के लिए call करें। आप ${siteProgress} progress देख कर खुश होंगे। और कुछ?`;
-    } else if (lastMessage.includes("nahi") || lastMessage.includes("no") || lastMessage.includes("not now") || lastMessage.includes("busy")) {
-      if (!hasTriedToConvince) {
-        reply = isEnglish
-          ? `I understand you're busy, but you're missing something really special at ${siteName}! The ${siteProgress} and the location at ${siteLocation} are huge advantages. Are you sure?`
-          : `Main samajh sakti hoon, par aap ${siteName} ki ek bahut acchi opportunity miss kar rahe hain! ${siteProgress} tayaar hain aur ${siteLocation} ki location amazing hai. Kya aap sure hain?`;
-      } else {
-        status = "declined";
-        reply = isEnglish
-          ? "I respect that. Let us know whenever you're free. Have a nice day!"
-          : "Theek hai, main samajh gayi. Jab bhi aap free hon batayiye. Aapka din shubh ho!";
-        shouldEnd = true;
-      }
-    } else if (lastMessage.includes("price") || lastMessage.includes("kitna") || lastMessage.includes("cost") || lastMessage.includes("rate")) {
-      reply = isEnglish
-        ? `Our sales manager will call you back with pricing for ${siteName}. By the way, road leveling at ${siteLocation} is 100% complete! What's your budget?`
-        : `Pricing ke liye hamare sales manager aapko call back karenge. Waise, ${siteLocation} mein road leveling 100% ho gayi hai! Aapka budget kya hai?`;
-    } else if (lastMessage.includes("hi") || lastMessage.includes("hello") || lastMessage.includes("namaste")) {
-      reply = isEnglish
-        ? `Hello! I'm Aura. Great to connect! Construction at ${siteName} (${siteLocation}) is moving fast. Would you like to visit?`
-        : `Namaste! Main Aura hoon. ${siteName} (${siteLocation}) mein kaam bahut tezi se chal raha hai. Kya aap visit karna chahenge?`;
-    } else {
-      reply = isEnglish
-        ? `I understand. Work is progressing very fast at ${siteName}. Are you planning a site visit?`
-        : `Ji bilkul. ${siteName} mein kaam bahut tezi se chal raha hai. Aap site visit plan kar rahe hain kya?`;
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) {
+      console.error("GROQ_API_KEY is not defined");
+      return NextResponse.json({ error: "API Configuration Error" }, { status: 500 });
     }
 
-    return NextResponse.json({ result: reply, status, shouldEnd });
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${groqApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messages
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.8,
+        max_tokens: 1024,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Groq API Error:", errorData);
+      return NextResponse.json({ error: "Failed to fetch from Groq" }, { status: response.status });
+    }
+
+    const data = await response.json();
+    const content = JSON.parse(data.choices[0].message.content);
+
+    // Ensure the response matches the required format
+    return NextResponse.json({ 
+      result: content.message, 
+      shouldEnd: content.terminate,
+      status: content.status || (content.terminate ? "declined" : "neutral")
+    });
 
   } catch (error) {
     console.error("LLM API Error:", error);

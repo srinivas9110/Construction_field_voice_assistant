@@ -32,8 +32,10 @@ export async function POST(req: Request) {
         text,
         model_id: "eleven_flash_v2_5", // Fast performance model
         voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75
+          stability: 0.45,
+          similarity_boost: 0.8,
+          style: 0.3,
+          use_speaker_boost: true
         }
       })
     });

@@ -27,7 +27,7 @@ export default function Home() {
     const site = PROJECTS.find(p => p.id === siteId) || PROJECTS[0];
     return [
       { role: "system", content: `You are Aura, an AI Voice Agent for Riverwood Projects LLP. Speak naturally in Hinglish. You are talking about ${site.name} in ${site.location}. Progress: ${site.progress}. Be helpful.` },
-      { role: "ai", content: `Namaste! I'm Aura from Riverwood Projects. It's great to connect! Talking about ${site.name} in ${site.location}—we've reached ${site.progress}. Would you like to visit?` }
+      { role: "assistant", content: `Namaste! I'm Aura from Riverwood Projects. It's great to connect! Talking about ${site.name} in ${site.location}—we've reached ${site.progress}. Would you like to visit?` }
     ];
   };
 
@@ -48,8 +48,13 @@ export default function Home() {
 
         recognition.onresult = (event: any) => {
           const transcript = event.results[0][0].transcript;
+          console.log("Speech Recognition Result:", transcript);
           clearSilenceTimer();
           handleVoiceInput(transcript);
+        };
+
+        recognition.onstart = () => {
+          console.log("Speech Recognition Started");
         };
 
         recognition.onerror = (event: any) => {
@@ -83,11 +88,11 @@ export default function Home() {
     silenceTimerRef.current = setTimeout(() => {
       if (isConnectedRef.current && !isSpeakingRef.current) {
         console.log("User silence detected. Prompting...");
-        const promptText = "Are you still there? I'd love to know if you're interested in visiting Riverwood Estate.";
-        conversationHistory.current.push({ role: "ai", content: promptText });
+        const promptText = "Kya aap wahi hain? Main jaanna chahungee ki kya aap is weekend Riverwood Estate visit karna chahenge?";
+        conversationHistory.current.push({ role: "assistant", content: promptText });
         speakWithElevenLabs(promptText);
       }
-    }, 5000); // 5 seconds of silence
+    }, 8000); // 8 seconds of silence for more patience
   };
 
   const clearSilenceTimer = () => {
@@ -149,7 +154,8 @@ export default function Home() {
           shouldEndAfterSpeaking.current = true;
         }
 
-        conversationHistory.current.push({ role: "ai", content: data.result });
+        console.log("LLM Content:", data.result);
+        conversationHistory.current.push({ role: "assistant", content: data.result });
         // 3. Trigger ElevenLabs Flash v2.5 TTS
         await speakWithElevenLabs(data.result);
       } else {
